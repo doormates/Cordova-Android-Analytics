@@ -13,6 +13,8 @@ import org.apache.cordova.api.CordovaPlugin;
 import org.json.JSONArray;
 import org.json.JSONException;
 
+import android.util.Log;
+
 import com.google.analytics.tracking.android.GoogleAnalytics;
 import com.google.analytics.tracking.android.Tracker;
 import com.google.analytics.tracking.android.Transaction;
@@ -66,9 +68,14 @@ public class GoogleAnalyticsTracker extends CordovaPlugin {
 				result = false;
 			}
 		} else if (STOP.equals(action)) {
-			stop();
-			callbackContext.success();
-			result = true;
+			try {
+				stop();
+				callbackContext.success();
+				result = true;
+			} catch (Exception e) {
+				callbackContext.error(e.getMessage());
+				result = false;
+			}
 		} else if (SET_CUSTOM_DIMENSION.equals(action)) {
 			try {
 				setCustomDimension(data.getInt(0), data.getString(1));
@@ -116,12 +123,14 @@ public class GoogleAnalyticsTracker extends CordovaPlugin {
 	}
 
 	private void start(String accountId) {
+		Log.d(this.getClass().getSimpleName(), "start(): accountId: " + accountId);
 		ga = GoogleAnalytics.getInstance(this.cordova.getActivity());
 		tracker = ga.getTracker(accountId);
+		tracker.setStartSession(true);
 	}
 
 	private void stop() {
-		ga.closeTracker(tracker);
+		// Purposefully left blank
 	}
 
 	private void trackPageView(String key) {
@@ -163,6 +172,65 @@ public class GoogleAnalyticsTracker extends CordovaPlugin {
 		      .setProductCategory(productCategory)                  // (String) Product category
 		      .build());
 		tracker.sendTransaction(myTrans);
+	}
+	
+	private void destroy() {
+		Log.d(this.getClass().getSimpleName(), "destroy()");
+		if (tracker != null) {
+			tracker.setStartSession(false);
+			if (ga != null) {
+				Log.d(this.getClass().getSimpleName(), "destroy(): closing tracker");
+				ga.closeTracker(tracker);
+			} else {
+				Log.d(this.getClass().getSimpleName(), "destroy(): ga is null");
+			}
+		} else {
+			Log.d(this.getClass().getSimpleName(), "destroy(): tracker is null");
+		}
+	}
+	
+	private void pause() {
+		Log.d(this.getClass().getSimpleName(), "pause()");
+		if (tracker != null) {
+			Log.d(this.getClass().getSimpleName(), "pause() -> setting start session to false");
+			tracker.setStartSession(false);
+		} else {
+			Log.d(this.getClass().getSimpleName(), "pause() -> tracker is null");
+		}
+	}
+	
+	private void resume() {
+		Log.d(this.getClass().getSimpleName(), "resume()");
+		if (tracker != null) {
+			Log.d(this.getClass().getSimpleName(), "pause() -> setting start session to true");
+			tracker.setStartSession(true);
+		} else {
+			Log.d(this.getClass().getSimpleName(), "pause() -> tracker is null");
+		}
+	}
+	
+	@Override
+	public void onDestroy() {
+		super.onDestroy();
+		destroy();
+	}
+	
+	@Override
+	public void onReset() {
+		super.onReset();
+		destroy();
+	}
+	
+	@Override
+	public void onPause(boolean multitasking) {
+		super.onPause(multitasking);
+		pause();
+	}
+	
+	@Override
+	public void onResume(boolean multitasking) {
+		super.onResume(multitasking);
+		resume();
 	}
 
 }
